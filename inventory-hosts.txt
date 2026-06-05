@@ -1,0 +1,12 @@
+# ============================================================
+#  Ansible Inventory - Milestone 3
+#  Lives on VM1 (Jenkins) at: /etc/ansible/hosts
+#  Replace <App-Server-IP> with your App-Server Public IPv4.
+# ============================================================
+
+[appserver]
+<App-Server-IP> ansible_user=ec2-user ansible_ssh_private_key_file=/var/lib/jenkins/.ssh/id_rsa
+
+# Test it with:
+#   sudo -u jenkins ansible -i /etc/ansible/hosts appserver -m ping
+# Expected result: "ping": "pong"

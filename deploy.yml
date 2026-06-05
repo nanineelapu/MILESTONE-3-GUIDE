@@ -1,0 +1,45 @@
+# ============================================================
+#  Ansible Deployment Playbook - Milestone 3
+#  Lives on VM1 (Jenkins) at: /etc/ansible/deploy.yml
+#  Run by the pipeline: ansible-playbook -i /etc/ansible/hosts /etc/ansible/deploy.yml
+#
+#  Flow: stop Tomcat -> remove old app -> copy new .war -> start Tomcat -> verify
+# ============================================================
+---
+- name: Deploy Ecommerce App to Tomcat
+  hosts: appserver
+  become: yes
+  tasks:
+
+    - name: Stop Tomcat service
+      systemd:
+        name: tomcat
+        state: stopped
+
+    - name: Remove old deployment
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /opt/tomcat/webapps/ROOT
+        - /opt/tomcat/webapps/ROOT.war
+
+    - name: Copy new WAR file to Tomcat (renamed ROOT.war = app opens at '/')
+      copy:
+        src: "{{ item }}"
+        dest: /opt/tomcat/webapps/ROOT.war
+        owner: tomcat
+        group: tomcat
+      with_fileglob:
+        - /var/lib/jenkins/workspace/EcommerceApp/target/*.war
+
+    - name: Start Tomcat service
+      systemd:
+        name: tomcat
+        state: started
+
+    - name: Wait for application to be available on port 8080
+      wait_for:
+        port: 8080
+        delay: 10
+        timeout: 60
