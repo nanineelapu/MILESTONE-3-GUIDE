@@ -1,0 +1,42 @@
+pipeline {
+    agent any
+    tools {
+        maven 'Maven'
+    }
+    stages {
+        stage('Stage 1: Clone Source Code') {
+            steps {
+                git branch: 'main',
+                    url: 'https://github.com/Msocial123/EcommerceApp.git'
+            }
+        }
+        stage('Stage 2: SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('SonarQube') {
+                    sh 'mvn sonar:sonar'
+                }
+            }
+        }
+        stage('Stage 2.1: Quality Gate') {
+            steps {
+                timeout(time: 2, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+        stage('Stage 3: Maven Build') {
+            steps {
+                sh 'mvn clean package -DskipTests'
+            }
+        }
+        stage('Stage 4: Ansible Deploy') {
+            steps {
+                sh 'ansible-playbook /etc/ansible/deploy.yml'
+            }
+        }
+    }
+    post {
+        success { echo 'Deployment Successful!' }
+        failure { echo 'Pipeline Failed!' }
+    }
+}
