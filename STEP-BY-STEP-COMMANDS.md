@@ -43,39 +43,60 @@
 ---
 
 # STEP 3 — VM1 (Jenkins-Server): Install Java, Jenkins, Git, Maven, Ansible
+nano setup.sh
 
-```bash
-# Become root and update
-sudo su -
+chmod +x setup.sh
+
+#!/bin/bash
+set -e
+
+echo "=== Step 1: Updating System ==="
 dnf update -y
 
-# Java 17
-dnf install java-17-amazon-corretto -y
+echo "=== Step 2: Installing Java 21 ==="
+dnf install java-21-amazon-corretto -y
 java -version
 
-# Jenkins repo + install
+echo "=== Step 3: Adding Jenkins Repo ==="
 wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
 rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
+
+echo "=== Step 4: Installing Jenkins ==="
 dnf install jenkins -y
 
-# Start Jenkins
+echo "=== Step 5: Setting JAVA_HOME for Jenkins ==="
+mkdir -p /etc/systemd/system/jenkins.service.d
+cat > /etc/systemd/system/jenkins.service.d/override.conf << EOF
+[Service]
+Environment="JAVA_HOME=/usr/lib/jvm/java-21-amazon-corretto.x86_64"
+EOF
+
+echo "=== Step 6: Starting Jenkins ==="
+systemctl daemon-reload
 systemctl start jenkins
 systemctl enable jenkins
-systemctl status jenkins        # look for: active (running)  -> press q to exit
+systemctl status jenkins
 
-# Install Git, Maven, Ansible (needed later)
+echo "=== Step 7: Installing Git ==="
 dnf install git -y
-dnf install maven -y
-dnf install ansible -y
-
-# Verify
 git --version
+
+echo "=== Step 8: Installing Maven ==="
+dnf install maven -y
 mvn -version
+
+echo "=== Step 9: Installing Ansible ==="
+dnf install ansible -y
 ansible --version
 
-# Get the Jenkins unlock password (COPY this)
+echo "========================================"
+echo "=== ALL DONE! Jenkins Unlock Password ==="
+echo "========================================"
 cat /var/lib/jenkins/secrets/initialAdminPassword
-```
+
+
+```bash
+
 
 Open in browser: `http://<Jenkins-Server-IP>:8080` → "Unlock Jenkins" page.
 
