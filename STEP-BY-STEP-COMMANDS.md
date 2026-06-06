@@ -128,33 +128,51 @@ Open in browser: `http://<Jenkins-Server-IP>:8080` → "Unlock Jenkins" page.
 # STEP 5 — VM2 (SonarQube-Server): Install SonarQube
 
 ```bash
-sudo su -
+#!/bin/bash
+set -e
+
+echo "=== Update System ==="
 dnf update -y
 
-# Java + tools
-dnf install java-17-amazon-corretto -y
-dnf install unzip wget -y
+echo "=== Install Java 17 ==="
+dnf install -y java-17-amazon-corretto
+java -version
 
-# System limits (Elasticsearch inside SonarQube needs these)
-sysctl -w vm.max_map_count=262144
-sysctl -w fs.file-max=65536
-echo "vm.max_map_count=262144" >> /etc/sysctl.conf
-echo "fs.file-max=65536" >> /etc/sysctl.conf
+echo "=== Configure vm.max_map_count ==="
+sysctl -w vm.max_map_count=524288
 
-# Non-root user (SonarQube refuses to run as root)
-useradd sonar
+grep -q "vm.max_map_count=524288" /etc/sysctl.conf || \
+echo "vm.max_map_count=524288" >> /etc/sysctl.conf
 
-# Download + unzip
-cd /opt
-wget https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-10.4.1.88267.zip
-unzip sonarqube-10.4.1.88267.zip
-mv sonarqube-10.4.1.88267 sonarqube
+echo "=== Install Required Packages ==="
+dnf install -y wget unzip
+
+echo "=== Download SonarQube 10.4 ==="
+cd /tmp
+wget -O sonarqube.zip https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-10.4.1.88267.zip
+
+echo "=== Extract SonarQube ==="
+rm -rf /opt/sonarqube
+unzip -q sonarqube.zip
+mv sonarqube-10.4.1.88267 /opt/sonarqube
+
+echo "=== Create Sonar User ==="
+id sonar >/dev/null 2>&1 || useradd sonar
 chown -R sonar:sonar /opt/sonarqube
 
-# Start as sonar user
-su - sonar
-sh /opt/sonarqube/bin/linux-x86-64/sonar.sh start
-sh /opt/sonarqube/bin/linux-x86-64/sonar.sh status     # SonarQube is running
+echo "=== Start SonarQube ==="
+sudo -u sonar /opt/sonarqube/bin/linux-x86-64/sonar.sh start
+
+echo "=== Waiting for startup ==="
+sleep 90
+
+echo "=== Status ==="
+sudo -u sonar /opt/sonarqube/bin/linux-x86-64/sonar.sh status
+
+echo "=== Access ==="
+echo "http://YOUR-PUBLIC-IP:9000"
+echo "Username: admin"
+echo "Password: admin"
 ```
 
 Wait ~2-3 min. Open: `http://<SonarQube-Server-IP>:9000`
