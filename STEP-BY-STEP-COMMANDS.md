@@ -187,51 +187,34 @@ Login `admin` / `admin` → set new password (e.g. `Admin@123`).
 # STEP 6 — VM3 (App-Server): Install Tomcat 9
 
 ```bash
-sudo su -
+#!/bin/bash
+set -e
+
+echo "=== Step 1: Update System ==="
 dnf update -y
 
-# Java
-dnf install java-17-amazon-corretto -y
+echo "=== Step 2: Install Java 21 ==="
+dnf install java-21-amazon-corretto -y
+java -version
 
-# Tomcat user
-useradd -m -d /opt/tomcat -U -s /bin/false tomcat
+echo "=== Step 3: Download Tomcat ==="
+cd /opt
+wget https://archive.apache.org/dist/tomcat/tomcat-9/v9.0.85/bin/apache-tomcat-9.0.85.tar.gz
 
-# Download Tomcat 9
-cd /tmp
-wget https://dlcdn.apache.org/tomcat/tomcat-9/v9.0.89/bin/apache-tomcat-9.0.89.tar.gz
-tar -xzf apache-tomcat-9.0.89.tar.gz -C /opt/tomcat --strip-components=1
+echo "=== Step 4: Extract Tomcat ==="
+tar -xvf apache-tomcat-9.0.85.tar.gz
+mv apache-tomcat-9.0.85 tomcat
 
-# Permissions
-chown -R tomcat:tomcat /opt/tomcat
+echo "=== Step 5: Set Permissions ==="
 chmod +x /opt/tomcat/bin/*.sh
 
-# systemd service
-cat > /etc/systemd/system/tomcat.service <<'EOF'
-[Unit]
-Description=Apache Tomcat
-After=network.target
+echo "=== Step 6: Start Tomcat ==="
+/opt/tomcat/bin/startup.sh
 
-[Service]
-Type=forking
-User=tomcat
-Group=tomcat
-Environment="JAVA_HOME=/usr/lib/jvm/java-17-amazon-corretto"
-Environment="CATALINA_PID=/opt/tomcat/temp/tomcat.pid"
-Environment="CATALINA_HOME=/opt/tomcat"
-ExecStart=/opt/tomcat/bin/startup.sh
-ExecStop=/opt/tomcat/bin/shutdown.sh
-Restart=on-failure
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-# Start
-systemctl daemon-reload
-systemctl start tomcat
-systemctl enable tomcat
-systemctl status tomcat        # active (running)
-```
+echo "========================================"
+echo "Tomcat is running!"
+echo "Open browser: http://<VM3-IP>:8080"
+echo "========================================"```
 
 Open: `http://<App-Server-IP>:8080` → Tomcat welcome page.
 
