@@ -1,0 +1,305 @@
+ COMPLETE ASSESSMENT FLOW — MILESTONE 3
+
+📌 OVERVIEW — What You're Building
+Your Laptop (PuTTY)
+      |
+      ├── VM1 → Jenkins + Maven + Ansible + Git
+      ├── VM2 → SonarQube
+      └── VM3 → Tomcat (App gets deployed here)
+
+Flow:
+GitHub Repo → Jenkins pulls → SonarQube checks quality
+→ Maven builds .war → Ansible deploys to Tomcat on VM3
+
+✅ PHASE 0 — Before You Start (5 mins)
+On AWS Console:
+
+Go to EC2 → Instances
+Make sure 3 instances are Running
+Note down the Public IP of each VM — you'll need it everywhere
+
+Security Groups — Add these inbound rules to each VM:
+VM1 (Jenkins):
+
+Port 22 — SSH
+Port 8080 — Jenkins UI
+
+VM2 (SonarQube):
+
+Port 22 — SSH
+Port 9000 — SonarQube UI
+
+VM3 (Tomcat):
+
+Port 22 — SSH
+Port 8080 — Tomcat UI
+
+
+✅ PHASE 1 — Setup VM1: Jenkins + Maven + Ansible (25 mins)
+Connect via PuTTY:
+
+Host: ec2-user@<VM1-Public-IP>
+Port: 22
+Auth → Browse → select your .ppk file
+
+Run these commands one by one:
+bash# Update system
+sudo yum update -y
+
+# Install Java (Jenkins needs it)
+sudo amazon-linux-extras install java-openjdk11 -y
+
+# Install Jenkins
+sudo wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
+sudo rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
+sudo yum install jenkins -y
+sudo systemctl start jenkins
+sudo systemctl enable jenkins
+
+# Install Git
+sudo yum install git -y
+
+# Install Maven
+sudo yum install maven -y
+
+# Install Ansible
+sudo amazon-linux-extras install ansible2 -y
+Get Jenkins initial password:
+bashsudo cat /var/lib/jenkins/secrets/initialAdminPassword
+Open Jenkins in browser:
+http://<VM1-Public-IP>:8080
+
+Paste the password
+Click Install Suggested Plugins
+Create admin user (remember this username/password)
+
+
+✅ PHASE 2 — Setup VM2: SonarQube (20 mins)
+Connect via PuTTY to VM2
+bash# Update system
+sudo yum update -y
+
+# Install Java
+sudo amazon-linux-extras install java-openjdk11 -y
+
+# Download SonarQube
+wget https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-9.9.4.87374.zip
+sudo yum install unzip -y
+unzip sonarqube-9.9.4.87374.zip
+sudo mv sonarqube-9.9.4.87374 /opt/sonarqube
+
+# Create sonar user (CANNOT run as root)
+sudo useradd sonar
+sudo chown -R sonar:sonar /opt/sonarqube
+
+# Start SonarQube
+sudo su - sonar -c "/opt/sonarqube/bin/linux-x86-64/sonar.sh start"
+Check it started:
+bashsudo su - sonar -c "/opt/sonarqube/bin/linux-x86-64/sonar.sh status"
+Open SonarQube in browser:
+http://<VM2-Public-IP>:9000
+
+Login: admin / admin
+It will ask you to change password — change it and note it down
+
+Generate Token in SonarQube:
+
+Click top-right avatar → My Account
+Go to Security tab
+Generate token → name it jenkins-token
+Copy and save the token — you won't see it again
+
+
+✅ PHASE 3 — Setup VM3: Tomcat App Server (15 mins)
+Connect via PuTTY to VM3
+bash# Update system
+sudo yum update -y
+
+# Install Java
+sudo amazon-linux-extras install java-openjdk11 -y
+
+# Install Tomcat
+sudo yum install tomcat -y
+sudo systemctl start tomcat
+sudo systemctl enable tomcat
+
+# Verify Tomcat running
+sudo systemctl status tomcat
+Open Tomcat in browser:
+http://<VM3-Public-IP>:8080
+You should see the Tomcat default page ✅
+
+✅ PHASE 4 — Configure SSH from VM1 to VM3 (for Ansible) (10 mins)
+On VM1 (Jenkins VM) — generate SSH key:
+bashsudo su - jenkins
+ssh-keygen -t rsa
+# Press Enter 3 times (no passphrase)
+cat ~/.ssh/id_rsa.pub
+# Copy this entire output
+On VM3 — paste the public key:
+bashmkdir -p ~/.ssh
+nano ~/.ssh/authorized_keys
+# Paste the copied public key here
+# Save: Ctrl+X → Y → Enter
+chmod 600 ~/.ssh/authorized_keys
+Test connection from VM1:
+bashsudo su - jenkins
+ssh ec2-user@<VM3-Public-IP>
+# Should connect without password
+
+✅ PHASE 5 — Create Ansible Playbook on VM1 (10 mins)
+Still on VM1:
+bash# Create inventory file
+sudo nano /etc/ansible/hosts
+Add this:
+ini[appserver]
+<VM3-Public-IP> ansible_user=ec2-user ansible_ssh_private_key_file=/var/lib/jenkins/.ssh/id_rsa
+bash# Create deploy playbook
+sudo nano /etc/ansible/deploy.yml
+Paste this:
+yaml---
+- hosts: appserver
+  become: yes
+  tasks:
+    - name: Stop Tomcat
+      service:
+        name: tomcat
+        state: stopped
+
+    - name: Copy WAR to Tomcat
+      copy:
+        src: /var/lib/jenkins/workspace/EcommerceApp/target/EcommerceApp.war
+        dest: /var/lib/tomcat/webapps/
+        remote_src: no
+
+    - name: Start Tomcat
+      service:
+        name: tomcat
+        state: started
+
+    - name: Verify Tomcat is running
+      service:
+        name: tomcat
+        state: started
+
+✅ PHASE 6 — Configure Jenkins (15 mins)
+Install Plugins:
+Go to Jenkins → Manage Jenkins → Plugins → Available
+Search and install these one by one:
+
+✅ SonarQube Scanner
+✅ Maven Integration
+✅ Ansible
+✅ SSH Agent
+✅ Git
+
+Click Restart after install
+Configure SonarQube in Jenkins:
+
+Manage Jenkins → Credentials → Global → Add Credentials
+
+Kind: Secret text
+Secret: paste your SonarQube token
+ID: sonar-token
+
+
+Manage Jenkins → System → scroll to SonarQube section:
+
+Name: SonarQube
+URL: http://<VM2-Public-IP>:9000
+Token: select sonar-token
+Save
+
+
+
+Configure Maven in Jenkins:
+
+Manage Jenkins → Tools → Maven installations
+
+Name: Maven
+Install automatically ✅
+Save
+
+
+
+
+✅ PHASE 7 — Create Jenkins Pipeline (10 mins)
+
+Jenkins dashboard → New Item
+Name: EcommerceApp
+Select Pipeline → OK
+
+Scroll down to Pipeline script and paste:
+groovypipeline {
+    agent any
+
+    tools {
+        maven 'Maven'
+    }
+
+    stages {
+
+        stage('Stage 1: Clone Source Code') {
+            steps {
+                echo 'Cloning repository...'
+                git branch: 'main',
+                    url: 'https://github.com/Msocial123/EcommerceApp.git'
+            }
+        }
+
+        stage('Stage 2: SonarQube Code Quality') {
+            steps {
+                echo 'Running SonarQube analysis...'
+                withSonarQubeEnv('SonarQube') {
+                    sh 'mvn sonar:sonar'
+                }
+            }
+        }
+
+        stage('Stage 2.1: Quality Gate') {
+            steps {
+                echo 'Checking Quality Gate...'
+                timeout(time: 2, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+        stage('Stage 3: Maven Build') {
+            steps {
+                echo 'Building application...'
+                sh 'mvn clean package -DskipTests'
+            }
+        }
+
+        stage('Stage 4: Ansible Deploy') {
+            steps {
+                echo 'Deploying via Ansible...'
+                sh 'ansible-playbook /etc/ansible/deploy.yml'
+            }
+        }
+    }
+
+    post {
+        success {
+            echo '✅ Pipeline Successful - App Deployed!'
+        }
+        failure {
+            echo '❌ Pipeline Failed - Check logs'
+        }
+    }
+}
+Click Save
+
+✅ PHASE 8 — Run the Pipeline (5 mins)
+
+Click Build Now
+Click on the build number → Console Output
+Watch all 4 stages go GREEN ✅
+
+
+📸 SCREENSHOTS TO TAKE FOR SUBMISSION
+#Screenshot1EC2 — all 3 instances Running2Jenkins dashboard at VM1-IP:80803SonarQube dashboard at VM2-IP:90004Jenkins pipeline — all stages GREEN5SonarQube — Quality Gate Passed6Ansible playbook output in console7App running at VM3-IP:8080/EcommerceApp
+
+⏱️ TIME PLAN (2-3 hours total)
+PhaseTimePhase 0 — AWS setup5 minsPhase 1 — Jenkins VM25 minsPhase 2 — SonarQube VM20 minsPhase 3 — Tomcat VM15 minsPhase 4 — SSH setup10 minsPhase 5 — Ansible10 minsPhase 6 — Jenkins config15 minsPhase 7 — Pipeline10 minsPhase 8 — Run + screenshots10 minsTotal~2 hrs
