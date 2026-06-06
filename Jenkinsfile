@@ -21,8 +21,8 @@ pipeline {
         stage('1. Clone Source Code') {
             steps {
                 // If the repo uses 'master', change branch below.
-                git branch: 'main',
-                    url: 'https://github.com/Msocial123/EcommerceApp.git'
+                git branch: 'master',
+                    url: 'https://github.com/nanineelapu/EcommerceApp.git'
             }
         }
 
