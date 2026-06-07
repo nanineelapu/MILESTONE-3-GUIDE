@@ -15,9 +15,9 @@
 
 | Name | AMI | Type | Storage | Ports to open | Key pair |
 |------|-----|------|---------|---------------|----------|
-| `Jenkins-Server` | Amazon Linux 2023 | t2.medium | 20 GB | 22, 8080 | `devops-key` (.ppk) |
-| `SonarQube-Server` | Amazon Linux 2023 | t2.medium | 20 GB | 22, 9000 | `devops-key` |
-| `App-Server` | Amazon Linux 2023 | t2.micro | 10 GB | 22, 8080 | `devops-key` |
+| `Jenkins-Server` | Amazon Linux 2023 | t3.small | 20 GB | 22, 8080 | `devops-key` (.ppk) |
+| `SonarQube-Server` | Amazon Linux 2023 | flex-large | 20 GB | 22, 9000 | `devops-key` |
+| `App-Server` | Amazon Linux 2023 | t3.small | 10 GB | 22, 8080 | `devops-key` |
 
 - Create the key pair **once** (name `devops-key`, format **.ppk** for PuTTY) and reuse it for all 3.
 - In **Network settings → Edit**, add the listed ports as Custom TCP, source `0.0.0.0/0`.
