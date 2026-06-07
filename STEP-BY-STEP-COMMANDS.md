@@ -126,6 +126,11 @@ Open in browser: `http://<Jenkins-Server-IP>:8080` → "Unlock Jenkins" page.
 ---
 
 # STEP 5 — VM2 (SonarQube-Server): Install SonarQube
+sudo su -
+nano sonar.sh
+Paste the below one code
+chmod +x sonar.sh
+bash sonar.sh
 
 ```bash
 #!/bin/bash
@@ -185,6 +190,10 @@ Login `admin` / `admin` → set new password (e.g. `Admin@123`).
 ---
 
 # STEP 6 — VM3 (App-Server): Install Tomcat 9
+sudo su -
+nano tomcat.sh
+chmod +x tomcat.sh
+bash tomcat.sh
 
 ```bash
 #!/bin/bash
