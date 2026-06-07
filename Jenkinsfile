@@ -12,7 +12,6 @@
 pipeline {
 agent any
 
-```
 tools {
     maven 'Maven'
 }
@@ -86,6 +85,4 @@ post {
         cleanWs()
     }
 }
-```
-
 }
