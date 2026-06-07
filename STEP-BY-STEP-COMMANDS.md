@@ -252,11 +252,9 @@ sudo -u jenkins ssh -o StrictHostKeyChecking=no ec2-user@<App-Server-IP> "echo S
 
 # Create Ansible inventory
 mkdir -p /etc/ansible
-cat > /etc/ansible/hosts <<EOF
+nano /etc/ansible/hosts
 [appserver]
-<App-Server-IP> ansible_user=ec2-user ansible_ssh_private_key_file=/var/lib/jenkins/.ssh/id_rsa
-EOF
-
+172.31.62.155 ansible_user=ec2-user ansible_ssh_private_key_file=/var/lib/jenkins/.ssh/id_rsa
 # Test Ansible connectivity
 sudo -u jenkins ansible -i /etc/ansible/hosts appserver -m ping     # expect: pong / SUCCESS
 ```
@@ -268,16 +266,17 @@ sudo -u jenkins ansible -i /etc/ansible/hosts appserver -m ping     # expect: po
 # STEP 8 — Create the Ansible Deploy Playbook (on VM1)
 
 ```bash
-sudo su -
+sudo su
 
-cat > /etc/ansible/deploy.yml <<'EOF'
+nano /etc/ansible/deploy.yml
+
 ---
 - name: Deploy Ecommerce App to Tomcat
   hosts: appserver
   become: yes
   tasks:
 
-    - name: Stop Tomcat service
+    - name: Stop Tomcat
       systemd:
         name: tomcat
         state: stopped
@@ -292,27 +291,19 @@ cat > /etc/ansible/deploy.yml <<'EOF'
 
     - name: Copy new WAR file to Tomcat
       copy:
-        src: "{{ item }}"
+        src: /var/lib/jenkins/workspace/EcommerceApp/EcommerceApp/target/EcommerceApp.war
         dest: /opt/tomcat/webapps/ROOT.war
-        owner: tomcat
-        group: tomcat
-      with_fileglob:
-        - /var/lib/jenkins/workspace/EcommerceApp/target/*.war
 
-    - name: Start Tomcat service
+    - name: Start Tomcat
       systemd:
         name: tomcat
         state: started
 
-    - name: Wait for application to be available on port 8080
+    - name: Wait for port 8080
       wait_for:
         port: 8080
         delay: 10
         timeout: 60
-EOF
-
-chown jenkins:jenkins /etc/ansible/deploy.yml
-chmod 644 /etc/ansible/deploy.yml
 
 # Validate syntax
 sudo -u jenkins ansible-playbook /etc/ansible/deploy.yml --syntax-check
@@ -370,10 +361,44 @@ Watch all 5 stages turn green.
 ### D. Verify
 Open `http://<App-Server-IP>:8080` → Ecommerce app loads.
 
+# Step 11
+# GitHub Webhook — Step by Step
+
+Step 1 — Jenkins Side
+Go to Jenkins → EcommerceApp → Configure
+Scroll to Build Triggers → tick ✅ GitHub hook trigger for GITScm polling
+Click Save
+
+Step 2 — GitHub Side
+Go to your repo:
+https://github.com/Msocial123/EcommerceApp
+Click Settings → Webhooks → Add webhook
+Fill exactly like this:
+FieldValuePayload URLhttp://43.203.188.238:8080/github-webhook/Content typeapplication/jsonSSL verificationDisableWhich eventsJust the push event ✅Active✅
+Click Add webhook
+
+Step 3 — Verify Green Tick
+Wait 10 seconds → refresh the page
+You should see green tick next to your webhook ✅
+📸 Take screenshot of green tick
+
+Step 4 — Test Automation
+Go to repo → open README.md → click pencil ✏️ → add this line:
+CI/CD Automated Pipeline - Milestone 3
+Scroll down → click Commit changes
+
+Step 5 — Watch Jenkins
+Go to http://43.203.188.238:8080
+Within 30 seconds pipeline auto starts ✅
+📸 Take screenshot of auto triggered build
+
+
 📸 **Screenshot 10:** Jenkins Stage View — all 5 stages green.
 📸 **Screenshot 11:** SonarQube project `EcommerceApp` + Quality Gate result.
 📸 **Screenshot 12:** Console Output showing Ansible tasks ok/changed.
 📸 **Screenshot 13:** Ecommerce app running in browser.
+📸 **Screenshot 14:** Take screenshot of wehbook in the github
+📸 **Screenshot 15:** Take screenshot of auto triggered build
 
 ---
 
