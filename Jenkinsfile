@@ -10,79 +10,60 @@
 // ============================================================
 
 pipeline {
-agent any
+    agent any
 
-tools {
-    maven 'Maven'
-}
-
-stages {
-
-    stage('1. Clone Source Code') {
-        steps {
-            git branch: 'master',
-                url: 'https://github.com/nanineelapu/EcommerceApp.git'
-        }
+    tools {
+        maven 'Maven'
     }
 
-    stage('2. Verify Workspace') {
-        steps {
-            sh '''
-            pwd
-            ls -la
-            ls -la EcommerceApp
-            '''
-        }
-    }
+    stages {
 
-    stage('3. SonarQube Code Quality') {
-        steps {
-            dir('EcommerceApp') {
-                withSonarQubeEnv('SonarQube') {
-                    sh '''
-                    mvn clean verify sonar:sonar \
-                    -Dsonar.projectKey=EcommerceApp \
-                    -DskipTests
-                    '''
+        stage('1. Clone Source Code') {
+            steps {
+                git branch: 'master',
+                    url: 'https://github.com/nanineelapu/EcommerceApp.git'
+            }
+        }
+
+        stage('2. SonarQube Code Quality') {
+            steps {
+                dir('EcommerceApp') {
+                    withSonarQubeEnv('SonarQube') {
+                        sh 'mvn clean verify sonar:sonar -Dsonar.projectKey=EcommerceApp -DskipTests'
+                    }
                 }
             }
         }
-    }
 
-    stage('4. Quality Gate Check') {
-        steps {
-            timeout(time: 5, unit: 'MINUTES') {
-                waitForQualityGate abortPipeline: true
+        stage('3. Quality Gate Check') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+        stage('4. Maven Build') {
+            steps {
+                dir('EcommerceApp') {
+                    sh 'mvn clean package -DskipTests'
+                }
+            }
+        }
+
+        stage('5. Ansible Deploy') {
+            steps {
+                sh 'ansible-playbook -i /etc/ansible/hosts /etc/ansible/deploy.yml'
             }
         }
     }
 
-    stage('5. Maven Build') {
-        steps {
-            dir('EcommerceApp') {
-                sh 'mvn clean package -DskipTests'
-            }
+    post {
+        success {
+            echo 'Pipeline SUCCESS - App deployed to Tomcat!'
+        }
+        failure {
+            echo 'Pipeline FAILED - Deployment stopped.'
         }
     }
-
-    stage('6. Ansible Deploy') {
-        steps {
-            sh 'ansible-playbook -i /etc/ansible/hosts /etc/ansible/deploy.yml'
-        }
-    }
-}
-
-post {
-    success {
-        echo 'Pipeline SUCCESS - App deployed to Tomcat!'
-    }
-
-    failure {
-        echo 'Pipeline FAILED - Deployment stopped.'
-    }
-
-    always {
-        cleanWs()
-    }
-}
 }
