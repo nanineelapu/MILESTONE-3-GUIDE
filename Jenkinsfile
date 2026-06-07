@@ -10,57 +10,82 @@
 // ============================================================
 
 pipeline {
-    agent any
+agent any
 
-    tools {
-        maven 'Maven'
+```
+tools {
+    maven 'Maven'
+}
+
+stages {
+
+    stage('1. Clone Source Code') {
+        steps {
+            git branch: 'master',
+                url: 'https://github.com/nanineelapu/EcommerceApp.git'
+        }
     }
 
-    stages {
-
-        stage('1. Clone Source Code') {
-            steps {
-                // If the repo uses 'master', change branch below.
-                git branch: 'master',
-                    url: 'https://github.com/nanineelapu/EcommerceApp.git'
-            }
+    stage('2. Verify Workspace') {
+        steps {
+            sh '''
+            pwd
+            ls -la
+            ls -la EcommerceApp
+            '''
         }
+    }
 
-        stage('2. SonarQube Code Quality') {
-            steps {
+    stage('3. SonarQube Code Quality') {
+        steps {
+            dir('EcommerceApp') {
                 withSonarQubeEnv('SonarQube') {
-                    sh 'mvn clean verify sonar:sonar -Dsonar.projectKey=EcommerceApp -DskipTests'
+                    sh '''
+                    mvn clean verify sonar:sonar \
+                    -Dsonar.projectKey=EcommerceApp \
+                    -DskipTests
+                    '''
                 }
             }
         }
+    }
 
-        stage('3. Quality Gate Check') {
-            steps {
-                timeout(time: 3, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true
-                }
+    stage('4. Quality Gate Check') {
+        steps {
+            timeout(time: 5, unit: 'MINUTES') {
+                waitForQualityGate abortPipeline: true
             }
         }
+    }
 
-        stage('4. Maven Build') {
-            steps {
+    stage('5. Maven Build') {
+        steps {
+            dir('EcommerceApp') {
                 sh 'mvn clean package -DskipTests'
             }
         }
-
-        stage('5. Ansible Deploy') {
-            steps {
-                sh 'ansible-playbook -i /etc/ansible/hosts /etc/ansible/deploy.yml'
-            }
-        }
     }
 
-    post {
-        success {
-            echo 'Pipeline SUCCESS - App deployed to Tomcat!'
-        }
-        failure {
-            echo 'Pipeline FAILED - Deployment stopped.'
+    stage('6. Ansible Deploy') {
+        steps {
+            sh 'ansible-playbook -i /etc/ansible/hosts /etc/ansible/deploy.yml'
         }
     }
+}
+
+post {
+    success {
+        echo 'Pipeline SUCCESS - App deployed to Tomcat!'
+    }
+
+    failure {
+        echo 'Pipeline FAILED - Deployment stopped.'
+    }
+
+    always {
+        cleanWs()
+    }
+}
+```
+
 }
