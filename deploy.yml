@@ -1,5 +1,5 @@
 # ============================================================
-#  sudo -u jenkins ansible-playbook /etc/ansible/deploy-maven.yml
+#  sudo -u jenkins ansible-playbook /etc/ansible/deploy.yml
 #  Ansible Deployment Playbook - Milestone 3
 #  Lives on VM1 (Jenkins) at: /etc/ansible/deploy.yml
 #  Run by the pipeline: ansible-playbook -i /etc/ansible/hosts /etc/ansible/deploy.yml
